@@ -584,7 +584,11 @@ export async function validateCitations(citations, apiKeys = {}) {
             }
 
             // 3. Year (1-year difference tolerated: online-first vs print)
-            if (item.extracted_year && trueData.year && Math.abs(parseInt(item.extracted_year) - parseInt(trueData.year)) > 1) {
+            // Software/dataset citations (R packages, Zenodo, figshare, etc.) use the version year,
+            // which may differ significantly from the DB's first-registration year — skip year check.
+            const isSoftwareCitation = /^@(misc|software|manual)\b/i.test(item.bibtex?.trim() || '')
+                || /^10\.(32614|5281|6084|5438)\//.test(item.doi || '');
+            if (!isSoftwareCitation && item.extracted_year && trueData.year && Math.abs(parseInt(item.extracted_year) - parseInt(trueData.year)) > 1) {
                 pendingMismatches.push({ field: 'year', label: `Year: "${item.extracted_year}" vs "${trueData.year}"`, extracted: item.extracted_year });
             }
 
@@ -746,7 +750,7 @@ function authorNamesMatch(a, b) {
     // NFD normalization: decompose precomposed chars (á→a+combining) then strip combining marks
     // This unifies PDF-extracted decomposed accents with database precomposed Unicode
     const tokens = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(t => t.length > 1);
+        .toLowerCase().replace(/-/g, ' ').replace(/[^a-z\s]/g, '').split(/\s+/).filter(t => t.length > 1);
     const ta = tokens(a), tb = tokens(b);
     // If extracted name has no valid tokens (garbled PDF chars), skip comparison
     if (ta.length === 0) return true;
